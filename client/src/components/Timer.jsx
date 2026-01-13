@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, RotateCcw, Target, Clock, 
   Tag as TagIcon, Plus, Info, Battery, 
@@ -13,6 +13,9 @@ const Timer = () => {
   const [goal, setGoal] = useState('');
   const [activeAnim, setActiveAnim] = useState('Coffee');
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Sound Logic: Reference to a notification sound
+  const audioRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'));
 
   // Animation Options
   const animations = [
@@ -37,6 +40,8 @@ const Timer = () => {
         }
       }, 1000);
     } else if (minutes === 0 && seconds === 0) {
+      // Trigger Sound when timer finishes
+      audioRef.current.play().catch(err => console.log("Audio play blocked", err));
       setIsActive(false);
     }
     return () => clearInterval(interval);
@@ -46,13 +51,15 @@ const Timer = () => {
     setIsActive(false);
     setMinutes(25);
     setSeconds(0);
-    // optionally reset goal / animation too if you want
+    // Reset sound if it's playing
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
   };
 
   const isRunning = isActive && (minutes > 0 || seconds > 0);
 
   return (
-    <div className="min-h-screen bg-[#0f0f11] text-white flex flex-col items-center justify-center relative">
+    <div className="min-h-screen bg-[#0f0f11] text-white flex flex-col items-center justify-center relative w-full">
 
       {/* ─── SETUP SCREEN ─── */}
       {!isRunning && (
@@ -231,11 +238,11 @@ const Timer = () => {
         </div>
       )}
 
-      {/* Floating chat button - this was missing */}
+      {/* Floating chat button */}
       <button
         onClick={() => setIsChatOpen(true)}
         className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center shadow-xl shadow-blue-900/40 transition-all active:scale-95"
-        aria-label="Open Jake.0 chat"
+        aria-label="Open Ace chat"
       >
         <MessageSquare size={24} />
       </button>
