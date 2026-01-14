@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { 
   Play, Pause, RotateCcw, Target, Clock, 
   Tag as TagIcon, Plus, Info, Battery, 
-  Rocket, Coffee, MessageSquare, X, Send 
+  Rocket, Coffee, MessageSquare, X, Send, CheckCircle2
 } from 'lucide-react';
 
 const Timer = () => {
@@ -13,8 +14,10 @@ const Timer = () => {
   const [goal, setGoal] = useState('');
   const [activeAnim, setActiveAnim] = useState('Coffee');
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [currentGoalId, setCurrentGoalId] = useState(null);
+  const [recentGoals, setRecentGoals] = useState([]);
 
-  // Sound Logic: Reference to a notification sound
+  // Sound Logic
   const audioRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'));
 
   // Animation Options
@@ -24,9 +27,28 @@ const Timer = () => {
     { id: 'Rocket', label: 'Rocket', icon: Rocket, color: 'text-orange-400' },
   ];
 
+  // ─── IMPORTANT: move these BEFORE any useEffect that uses them ───
   const totalSeconds = isBreak ? 5 * 60 : 25 * 60;
   const remainingSeconds = minutes * 60 + seconds;
   const fillLevel = (remainingSeconds / totalSeconds) * 100;
+
+  const isRunning = isActive && (minutes > 0 || seconds > 0);
+
+  // Fetch recent goals when setup screen is visible
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/goals');
+        setRecentGoals(res.data);
+      } catch (err) {
+        console.log("Could not load recent goals (backend may be off?)", err);
+      }
+    };
+
+    if (!isRunning) {
+      fetchHistory();
+    }
+  }, [isRunning]);   // ← now safe
 
   useEffect(() => {
     let interval = null;
@@ -39,24 +61,42 @@ const Timer = () => {
           setSeconds(seconds - 1);
         }
       }, 1000);
-    } else if (minutes === 0 && seconds === 0) {
-      // Trigger Sound when timer finishes
+    } else if (minutes === 0 && seconds === 0 && isActive) {
       audioRef.current.play().catch(err => console.log("Audio play blocked", err));
+      
+      if (currentGoalId) {
+        axios.patch(`http://localhost:5000/api/goals/${currentGoalId}`, { status: 'completed' })
+          .catch(err => console.error("Error updating goal status:", err));
+      }
+      
       setIsActive(false);
     }
     return () => clearInterval(interval);
-  }, [isActive, minutes, seconds]);
+  }, [isActive, minutes, seconds, currentGoalId]);
+
+  const handleStartFocus = async () => {
+    try {
+      if (goal) {
+        const response = await axios.post('http://localhost:5000/api/goals', {
+          title: goal,
+          duration: minutes
+        });
+        setCurrentGoalId(response.data._id);
+      }
+      setIsActive(true);
+    } catch (err) {
+      console.error("Backend connection failed, starting locally:", err);
+      setIsActive(true);
+    }
+  };
 
   const handleRestart = () => {
     setIsActive(false);
     setMinutes(25);
     setSeconds(0);
-    // Reset sound if it's playing
     audioRef.current.pause();
     audioRef.current.currentTime = 0;
   };
-
-  const isRunning = isActive && (minutes > 0 || seconds > 0);
 
   return (
     <div className="min-h-screen bg-[#0f0f11] text-white flex flex-col items-center justify-center relative w-full">
@@ -65,7 +105,7 @@ const Timer = () => {
       {!isRunning && (
         <div className="flex flex-col items-center w-full max-w-xl mx-auto space-y-10 px-4 py-12">
           
-          {/* Visualizer (small version in setup) */}
+          {/* Visualizer */}
           <div className="relative w-64 h-64 flex items-center justify-center transition-all duration-500">
             {activeAnim === 'Coffee' ? (
               <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_30px_rgba(255,255,255,0.08)]" style={{ imageRendering: 'pixelated' }}>
@@ -133,9 +173,44 @@ const Timer = () => {
             </div>
           </div>
 
+          {/* Recent Focus History */}
+          <div className="w-full space-y-3">
+            <h3 className="text-xs uppercase tracking-widest text-gray-500 font-bold flex items-center">
+              <Clock size={12} className="mr-2" /> Recent Sessions
+            </h3>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {recentGoals.length > 0 ? (
+                recentGoals.map((g) => (
+                  <div
+                    key={g._id}
+                    className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 flex justify-between items-center text-sm"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{g.title || 'Untitled focus'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {g.duration} min • {new Date(g.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      {g.status === 'completed' ? (
+                        <CheckCircle2 size={20} className="text-green-500" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border-2 border-gray-600" />
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-gray-600 text-sm">
+                  No sessions yet. Start your first focus!
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* START BUTTON */}
           <button 
-            onClick={() => setIsActive(true)}
+            onClick={handleStartFocus}
             className="w-full py-6 rounded-2xl bg-blue-600 hover:bg-blue-500 transition-all shadow-[0_10px_40px_rgba(37,99,235,0.4)] flex items-center justify-center space-x-4 mt-6"
           >
             <Play size={28} fill="currentColor" />
@@ -144,11 +219,9 @@ const Timer = () => {
         </div>
       )}
 
-      {/* ─── RUNNING / COUNTDOWN SCREEN ─── */}
+      {/* ─── RUNNING SCREEN ─── */}
       {isRunning && (
         <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#0a0a0c] px-6">
-          
-          {/* Big Visualizer */}
           <div className="relative w-80 h-80 mb-12">
             {activeAnim === 'Coffee' ? (
               <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_60px_rgba(128,86,61,0.4)]" style={{ imageRendering: 'pixelated' }}>
@@ -173,19 +246,16 @@ const Timer = () => {
             )}
           </div>
 
-          {/* Big Timer */}
           <div className="text-7xl font-mono font-bold tracking-widest mb-10">
             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
           </div>
 
-          {/* Goal display */}
           {goal && (
             <p className="text-gray-400 text-lg mb-12 max-w-md text-center">
               {goal}
             </p>
           )}
 
-          {/* Controls */}
           <div className="flex gap-6">
             <button
               onClick={() => setIsActive(false)}
