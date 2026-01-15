@@ -5,6 +5,7 @@
 body {
   @apply bg-background text-white antialiased;
   font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
 }
 
 .glass-card {

@@ -111,6 +111,7 @@ const Timer = () => {
 
   const handleStartFocus = async () => {
     try {
+      // 1. Save Goal to Backend
       if (goal) {
         const response = await axios.post('http://localhost:5000/api/goals', {
           title: goal,
@@ -118,6 +119,7 @@ const Timer = () => {
         });
         setCurrentGoalId(response.data._id);
       }
+      // 2. Start Timer
       setIsActive(true);
       setIsBreak(false); // ensure we start in focus mode
     } catch (err) {
@@ -132,8 +134,7 @@ const Timer = () => {
     setIsBreak(false);
     setMinutes(FOCUS_MINUTES);
     setSeconds(0);
-    setCurrentGoalId(null);
-    setGoal('');
+    // Reset sound if it's playing
     audioRef.current.pause();
     audioRef.current.currentTime = 0;
     setSessionCount(0);
@@ -155,7 +156,7 @@ const Timer = () => {
       {!isRunning && !isBreak && (
         <div className="flex flex-col items-center w-full max-w-xl mx-auto space-y-10 px-4 py-12">
           
-          {/* Visualizer */}
+          {/* Visualizer (small version in setup) */}
           <div className="relative w-64 h-64 flex items-center justify-center transition-all duration-500">
             {activeAnim === 'Coffee' ? (
               <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_30px_rgba(255,255,255,0.08)]" style={{ imageRendering: 'pixelated' }}>
@@ -271,85 +272,93 @@ const Timer = () => {
 
       {/* ─── FOCUS / BREAK RUNNING SCREEN ─── */}
       {isRunning && (
-        <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#0a0a0c] px-6">
-          
-          {/* Big Visualizer – same for focus & break */}
-          <div className="relative w-80 h-80 mb-12">
-            {activeAnim === 'Coffee' ? (
-              <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_60px_rgba(128,86,61,0.4)]" style={{ imageRendering: 'pixelated' }}>
-                <mask id="cup-mask"><path d="M22 22 h46 v44 q0 12 -12 12 h-22 q-12 0 -12 -12 Z" fill="white" /></mask>
-                <path d="M68 32 h8 v4 h4 v4 h2 v24 h-2 v4 h-4 v4 h-8 v-6 h6 v-2 h2 v-22 h-2 v-2 h-6 Z" fill="white" />
-                <path d="M18 18 h54 v48 q0 16 -16 16 h-22 q-16 0 -16 -16 Z" fill="white" />
-                <path d="M22 22 h46 v44 q0 12 -12 12 h-22 q-12 0 -12 -12 Z" fill="#121214" />
-                <rect 
-                  x="22" 
-                  y={22 + (56 * (1 - fillLevel/100))} 
-                  width="46" 
-                  height={56 * (fillLevel/100)} 
-                  fill="#80563d" 
-                  mask="url(#cup-mask)" 
-                  className="transition-all duration-1000 ease-linear" 
-                />
-              </svg>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-600 animate-pulse">
-                {activeAnim === 'Battery' ? <Battery size={140} /> : <Rocket size={140} />}
-              </div>
-            )}
-          </div>
+        <div 
+          className="fixed inset-0 bg-[#0a0a0c] overflow-y-auto px-4 py-8"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="flex flex-col items-center min-h-full justify-start pt-8 pb-20 max-w-md mx-auto">
+            
+            {/* Big Visualizer */}
+            <div className="relative w-80 h-80 mb-12 flex-shrink-0">
+              {activeAnim === 'Coffee' ? (
+                <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_60px_rgba(128,86,61,0.4)]" style={{ imageRendering: 'pixelated' }}>
+                  <mask id="cup-mask"><path d="M22 22 h46 v44 q0 12 -12 12 h-22 q-12 0 -12 -12 Z" fill="white" /></mask>
+                  <path d="M68 32 h8 v4 h4 v4 h2 v24 h-2 v4 h-4 v4 h-8 v-6 h6 v-2 h2 v-22 h-2 v-2 h-6 Z" fill="white" />
+                  <path d="M18 18 h54 v48 q0 16 -16 16 h-22 q-16 0 -16 -16 Z" fill="white" />
+                  <path d="M22 22 h46 v44 q0 12 -12 12 h-22 q-12 0 -12 -12 Z" fill="#121214" />
+                  <rect 
+                    x="22" 
+                    y={22 + (56 * (1 - fillLevel/100))} 
+                    width="46" 
+                    height={56 * (fillLevel/100)} 
+                    fill="#80563d" 
+                    mask="url(#cup-mask)" 
+                    className="transition-all duration-1000 ease-linear" 
+                  />
+                </svg>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-600 animate-pulse">
+                  {activeAnim === 'Battery' ? <Battery size={140} /> : <Rocket size={140} />}
+                </div>
+              )}
+            </div>
 
-          {/* Big Timer */}
-          <div className="text-7xl font-mono font-bold tracking-widest mb-6">
-            {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-          </div>
+            {/* Big Timer */}
+            <div className="text-7xl font-mono font-bold tracking-widest mb-6">
+              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            </div>
 
-          {/* Status text */}
-          <div className="text-xl font-semibold mb-2">
-            {isBreak ? "Break Time" : "Focus Mode"}
-          </div>
+            {/* Status text */}
+            <div className="text-xl font-semibold mb-2">
+              {isBreak ? "Break Time" : "Focus Mode"}
+            </div>
 
-          <p className="text-gray-400 text-base mb-10 max-w-md text-center">
-            {isBreak 
-              ? (currentCycle % CYCLES_BEFORE_LONG_BREAK === 0 
-                  ? "Long break – relax, stretch, hydrate" 
-                  : "Short break – take it easy for a moment")
-              : goal || "Stay focused on your goal"}
-          </p>
-
-          {/* Cycle indicator */}
-          {!isBreak && (
-            <p className="text-sm text-gray-500 mb-8">
-              Session {currentCycle} of {CYCLES_BEFORE_LONG_BREAK}
-              {currentCycle === CYCLES_BEFORE_LONG_BREAK && " – next is long break"}
+            <p className="text-gray-400 text-base mb-10 max-w-md text-center">
+              {isBreak 
+                ? (currentCycle % CYCLES_BEFORE_LONG_BREAK === 0 
+                    ? "Long break – relax, stretch, hydrate" 
+                    : "Short break – take it easy for a moment")
+                : goal || "Stay focused on your goal"}
             </p>
-          )}
 
-          {/* Controls */}
-          <div className="flex gap-6">
-            <button
-              onClick={() => setIsActive(!isActive)}
-              className="flex items-center gap-3 px-10 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-lg font-semibold transition-colors"
-            >
-              {isActive ? <Pause size={28} /> : <Play size={28} />} 
-              {isActive ? 'Pause' : 'Resume'}
-            </button>
+            {/* Cycle indicator */}
+            {!isBreak && (
+              <p className="text-sm text-gray-500 mb-8">
+                Session {currentCycle} of {CYCLES_BEFORE_LONG_BREAK}
+                {currentCycle === CYCLES_BEFORE_LONG_BREAK && " – next is long break"}
+              </p>
+            )}
 
-            <button
-              onClick={isBreak ? handleSkipBreak : handleRestart}
-              className={`flex items-center gap-3 px-10 py-5 rounded-2xl text-lg font-semibold transition-colors ${
-                isBreak 
-                  ? 'bg-blue-900/60 hover:bg-blue-900/80 border border-blue-700/40' 
-                  : 'bg-red-900/60 hover:bg-red-900/80 border border-red-700/40'
-              }`}
-            >
-              <RotateCcw size={28} />
-              {isBreak ? 'Skip Break' : 'Restart'}
-            </button>
+            {/* Controls */}
+            <div className="flex gap-6 flex-wrap justify-center">
+              <button
+                onClick={() => setIsActive(!isActive)}
+                className="flex items-center gap-3 px-10 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-lg font-semibold transition-colors"
+              >
+                {isActive ? <Pause size={28} /> : <Play size={28} />} 
+                {isActive ? 'Pause' : 'Resume'}
+              </button>
+
+              <button
+                onClick={isBreak ? handleSkipBreak : handleRestart}
+                className={`flex items-center gap-3 px-10 py-5 rounded-2xl text-lg font-semibold transition-colors ${
+                  isBreak 
+                    ? 'bg-blue-900/60 hover:bg-blue-900/80 border border-blue-700/40' 
+                    : 'bg-red-900/60 hover:bg-red-900/80 border border-red-700/40'
+                }`}
+              >
+                <RotateCcw size={28} />
+                {isBreak ? 'Skip Break' : 'Restart'}
+              </button>
+            </div>
+
+            {/* Extra bottom padding for scroll feel */}
+            <div className="h-32" />
           </div>
         </div>
       )}
 
-      {/* Chat overlay – unchanged */}
+      {/* Chat overlay */}
       {isChatOpen && (
         <div className="fixed inset-0 z-50 flex justify-end pointer-events-none">
           <div 

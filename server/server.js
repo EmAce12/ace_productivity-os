@@ -6,6 +6,8 @@ require('dotenv').config();
 // --- NEW IMPORT ---
 const goalRoutes = require('./routes/goalRoutes'); 
 
+const todoRoutes = require('./routes/todoRoutes');
+
 const app = express();
 
 app.use(cors());
@@ -19,6 +21,8 @@ mongoose.connect(MONGODB_URI)
 
 // --- NEW ROUTE MIDDLEWARE ---
 app.use('/api/goals', goalRoutes); 
+app.use('/api/todos', todoRoutes);
+
 
 app.get('/', (req, res) => {
   res.send('Focus App API is running...');
